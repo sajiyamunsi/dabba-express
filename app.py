@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import QR Code/PhonePe/GPay
 import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Student Dabba Express", page_icon="🍲")
@@ -18,20 +17,14 @@ except Exception as e:
     st.error("Google Sheet connect nahi ho pa rahi. Sheet link check karein.")
     menu_data = None
 
-# --- 2. Razorpay Client Setup ---
-st.subheader("💳 Payment Options")
-st.write("Aap niche diye gaye UPI ID ya QR Code par payment kar sakte hain:")
-st.info("📱 **UPI ID:** yourname@okaxis / 9876543210@paytm")
-st.success("Payment hone ke baad Order Confirm ho jayega!")
-
-# --- 3. Session State for Daily Limit (100 Dabbes Lock) ---
+# --- 2. Session State for Daily Limit (100 Dabbes Lock) ---
 if "total_booked_today" not in st.session_state:
     st.session_state.total_booked_today = 0  # Aaj ke total booked dabbes
 
 DAILY_LIMIT = 100
 remaining_dabbes = DAILY_LIMIT - st.session_state.total_booked_today
 
-# --- 4. Sidebar Student Registration ---
+# --- 3. Sidebar Student Registration ---
 st.sidebar.header("📋 Student Registration")
 name = st.sidebar.text_input("Name")
 phone = st.sidebar.text_input("Mobile Number")
@@ -42,7 +35,7 @@ map_location = st.sidebar.text_input("Google Maps Location Link (Optional)", pla
 st.sidebar.write("---")
 st.sidebar.info(f"📊 **Aaj ki Limit:** {DAILY_LIMIT} Dabbes\n\n🔥 **Bache hue Dabbe:** {remaining_dabbes}")
 
-# --- 5. Today's Menu Display & Limit Check ---
+# --- 4. Today's Menu Display & Limit Check ---
 st.write("---")
 st.header("🍱 Today's Live Dabba Menu")
 
@@ -81,7 +74,7 @@ else:
 
             st.write("---")
 
-    # --- 6. Cart & Razorpay Secure Payment ---
+    # --- 5. Cart & Dynamic UPI QR Code Payment ---
     st.header("🛒 Cart & Payment")
 
     if st.session_state.cart:
@@ -90,85 +83,45 @@ else:
             st.write(f"- {i['name']} : ₹{i['price']}")
 
         st.write(f"### **Total Amount: ₹{total}**")
+        
+        st.write("---")
+        st.subheader("💳 Online Payment (UPI / QR Code)")
+        st.info("💡 Niche diye gaye UPI ID ya QR Code par PhonePe / Google Pay / Paytm se payment karein:")
 
-        if st.button("Pay Now with Razorpay 💳"):
+        # ⚠️ Yahan apni asli UPI ID daalein (Jaise: 9876543210@paytm ya yourname@okaxis)
+        UPI_ID = "7385804669@kotakbank"
+
+        st.markdown(f"👉 **UPI ID:** `{UPI_ID}`")
+
+        # Dynamic QR Code URL (It automatically sets the total bill amount)
+        qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa={UPI_ID}&pn=Student%20Dabba%20Express&am={total}&cu=INR"
+        
+        st.image(qr_url, caption=f"Scan to Pay ₹{total} via Google Pay / PhonePe / Paytm", width=200)
+
+        st.write("---")
+        st.subheader("📲 Confirm Your Order")
+        utr_number = st.text_input("Payment hone ke baad UTR / Transaction ID yahan daalein:")
+
+        if st.button("Confirm Order 🚀"):
             if not name or not phone or not address:
                 st.error("Kripya pehle Sidebar mein apna Naam, Mobile Number aur Address bharein!")
-            elif client is None:
-                st.error("Razorpay Client setup nahi ho paya.")
+            elif not utr_number.strip():
+                st.error("Kripya payment ka UTR / Transaction ID zaroor daalein!")
             else:
-                try:
-                    amount_in_paise = int(total * 100)
-                    
-                    order_data = {
-                        "amount": amount_in_paise,
-                        "currency": "INR",
-                        "receipt": f"order_{phone}",
-                        "payment_capture": 1
-                    }
-                    order = client.order.create(data=order_data)
-                    
-                    st.session_state.total_booked_today += len(st.session_state.cart)
-                    st.session_state.cart = []  # Cart khali kar denge
-                    
-                    st.success(f"🎉 Order Created Successfully! Order ID: {order['id']}")
-                    
-                    # 🔔 Order Received Ringtone Sound
-                    st.components.v1.html("""
-                        <audio autoplay>
-                            <source src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" type="audio/mpeg">
-                        </audio>
-                    """, height=0)
-                    
-                    # Razorpay Checkout Popup Button HTML using .format() to avoid syntax errors
-                    razorpay_checkout_html = """
-                    <!DOCTYPE html>
-                    <html>
-                    <body>
-                        <button id="rzp-button1" style="background-color: #3399cc; color: white; padding: 10px 20px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer;">Pay ₹{} Now</button>
-                        <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-                        <script>
-                        var options = {{
-                            "key": "{}",
-                            "amount": "{}",
-                            "currency": "INR",
-                            "name": "Student Dabba Express",
-                            "description": "Dabba Booking Payment",
-                            "order_id": "{}",
-                            "handler": function (response){{
-                                alert("Payment Successful! Payment ID: " + response.razorpay_payment_id);
-                            }},
-                            "prefill": {{
-                                "name": "{}",
-                                "contact": "{}"
-                            }},
-                            "theme": {{
-                                "color": "#3399cc"
-                            }}
-                        }};
-                        var rzp1 = new Razorpay(options);
-                        document.getElementById('rzp-button1').onclick = function(e){{
-                            rzp1.open();
-                            e.preventDefault();
-                        }}
-                        </script>
-                    </body>
-                    </html>
-                    """.format(total, RAZORPAY_KEY_ID, amount_in_paise, order['id'], name, phone)
+                st.balloons()
+                st.session_state.total_booked_today += len(st.session_state.cart)
+                
+                # 🔔 Order Sound Effect
+                st.components.v1.html("""
+                    <audio autoplay>
+                        <source src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" type="audio/mpeg">
+                    </audio>
+                """, height=0)
 
-                    components.html(razorpay_checkout_html, height=600)
-                    
-                except Exception as err:
-                    st.error(f"Payment order banane mein error aaya: {err}")
+                st.success(f"🎉 Shukriya {name}! Aapka order successfully confirm ho gaya hai.")
+                st.info(f"📍 **Delivery Address:** {address}\n\n📞 **Phone:** {phone}\n💳 **UTR Number:** {utr_number}")
+
+                # Cart khali karein
+                st.session_state.cart = []
     else:
         st.info("Aapka cart khali hai. Menu se Dabba select karein!")
-        
-        # --- Customer Chat & Feedback Section ---
-st.write("---")
-st.header("💬 Customer Chat & Special Requests")
-feedback_msg = st.text_area("Apna Message / Feedback likhein:")
-if st.button("Send Message"):
-    if feedback_msg.strip():
-        st.success("Aapka message humein mil gaya hai! Hum jald hi aapse sampark karenge. Shukriya! 🙏")
-    else:
-        st.warning("Kripya pehle koi message likhein!")
