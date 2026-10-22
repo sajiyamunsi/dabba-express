@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import razorpay
+import QR Code/PhonePe/GPay
 import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Student Dabba Express", page_icon="🍲")
@@ -19,20 +19,10 @@ except Exception as e:
     menu_data = None
 
 # --- 2. Razorpay Client Setup ---
-RAZORPAY_KEY_ID = "rzp_test_TqCNlYuU5wtn5j"
-RAZORPAY_KEY_SECRET = "rg0NJUzr5yfDbkf86Q113Cev"
-
-try:
-    if "razorpay" in st.secrets:
-        RAZORPAY_KEY_ID = st.secrets["razorpay"]["key_id"]
-        RAZORPAY_KEY_SECRET = st.secrets["razorpay"]["key_secret"]
-except Exception:
-    pass
-
-try:
-    client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
-except Exception as e:
-    client = None
+st.subheader("💳 Payment Options")
+st.write("Aap niche diye gaye UPI ID ya QR Code par payment kar sakte hain:")
+st.info("📱 **UPI ID:** yourname@okaxis / 9876543210@paytm")
+st.success("Payment hone ke baad Order Confirm ho jayega!")
 
 # --- 3. Session State for Daily Limit (100 Dabbes Lock) ---
 if "total_booked_today" not in st.session_state:
